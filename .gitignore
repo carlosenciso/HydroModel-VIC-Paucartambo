@@ -1,0 +1,24 @@
+# NetCDF files
+*.nc
+*.nc4
+*.cdf
+*.netcdf
+
+# GeoTIFF / TIFF files
+*.tif
+*.tiff
+*.geotiff
+
+# Optional: compressed raster formats
+*.tif.gz
+*.tiff.gz
+# Ignore NetCDF files everywhere (including subdirectories)
+**/*.nc
+**/*.nc4
+**/*.cdf
+**/*.netcdf
+
+# Ignore TIFF / GeoTIFF files everywhere
+**/*.tif
+**/*.tiff
+**/*.geotiff

@@ -1,0 +1,215 @@
+# ============================================================
+# Basin Configuration - Cuenca Paucartambo, Pasco - Peru
+# Proyecto VIC Hidrológico
+# ============================================================
+
+basin:
+  name: "Paucartambo"
+  country: "Peru"
+  department: "Pasco"
+  river: "Rio Paucartambo"
+
+  # Bounding box (WGS84)
+  bbox:
+    lat_min: -11.80
+    lat_max: -10.20
+    lon_min: -76.80
+    lon_max: -74.80
+
+  # Resolución de la grilla (~1 km)
+  resolution: 0.009  # grados (~1 km en el ecuador)
+
+  # Punto de salida: Planta Hidroeléctrica Yuncan
+  outlet:
+    name: "Central Hidroeléctrica Yuncan"
+    lat: -10.745
+    lon: -75.586
+
+  # Paso de tiempo
+  timestep: "daily"
+
+  # Coordenadas de sistema (EPSG)
+  crs: "EPSG:4326"
+
+# ============================================================
+# Simulación
+# ============================================================
+simulation:
+  # Periodo de spin-up (calentamiento del modelo)
+  # 2000-2002 sirven como warm-up; el análisis real empieza en 2003
+  spinup_start: "2000-01-01"
+  spinup_end:   "2002-12-31"
+
+  # Periodo de simulación principal (incluye warm-up)
+  start_date: "2000-01-01"
+  end_date:   "2025-12-31"
+
+  # Pasos internos por día: mínimo 6-horario (req. VIC5 snow model)
+  # Outputs siguen siendo diarios (AGGFREQ NDAYS 1)
+  model_steps_per_day: 4
+  snow_steps_per_day: 4
+  runoff_steps_per_day: 4
+
+  # Opciones de física
+  full_energy: false      # Balance de energía completo
+  frozen_soil: false      # Suelo congelado (alta montaña)
+  close_energy: false
+
+# ============================================================
+# Forzantes Meteorológicos (GEE)
+# ============================================================
+forcings:
+  precipitation:
+    source: "UCSB-CHG/CHIRPS/DAILY"
+    variable: "precipitation"
+    unit: "mm/day"
+    scale: 5566          # Escala nativa en metros (~5km)
+    resample_to: 1000    # Remuestrear a 1km
+
+  temperature:
+    source: "ECMWF/ERA5_LAND/DAILY_AGGR"
+    variables:
+      tmax: "temperature_2m_max"
+      tmin: "temperature_2m_min"
+    unit: "K"           # Convertir a Celsius
+    scale: 11132        # ~0.1 grados
+
+  wind:
+    source: "ECMWF/ERA5_LAND/DAILY_AGGR"
+    variables:
+      u10: "u_component_of_wind_10m"
+      v10: "v_component_of_wind_10m"
+    unit: "m/s"
+    scale: 11132
+
+  shortwave:
+    source: "ECMWF/ERA5_LAND/DAILY_AGGR"
+    variable: "surface_solar_radiation_downwards_sum"
+    unit: "J/m2"        # Convertir a W/m2
+    scale: 11132
+
+  longwave:
+    source: "ECMWF/ERA5_LAND/DAILY_AGGR"
+    variable: "surface_thermal_radiation_downwards_sum"
+    unit: "J/m2"
+    scale: 11132
+
+  pressure:
+    source: "ECMWF/ERA5_LAND/DAILY_AGGR"
+    variable: "surface_pressure"
+    unit: "Pa"          # Convertir a kPa
+    scale: 11132
+
+  vapor_pressure:
+    # Calculado de dewpoint temperature
+    source: "ECMWF/ERA5_LAND/DAILY_AGGR"
+    variable: "dewpoint_temperature_2m"
+    unit: "K"
+    scale: 11132
+
+# ============================================================
+# Parámetros de Suelo (GEE - SoilGrids)
+# ============================================================
+soil:
+  source: "ISRIC/SoilGrids250m/v2.0"
+  layers:
+    - depth_cm: 10   # Capa 1 VIC (0-10cm)
+      sg_layers: ["0-5cm", "5-15cm"]
+    - depth_cm: 30   # Capa 2 VIC (10-40cm)
+      sg_layers: ["15-30cm", "30-60cm"]
+    - depth_cm: 60   # Capa 3 VIC (40-100cm)
+      sg_layers: ["60-100cm", "100-200cm"]
+  variables:
+    - "sand"          # Fracción de arena
+    - "silt"          # Fracción de limo
+    - "clay"          # Fracción de arcilla
+    - "bdod"          # Densidad aparente
+    - "soc"           # Carbono orgánico
+    - "cfvo"          # Fragmentos gruesos
+
+# ============================================================
+# Cobertura Vegetal
+# ============================================================
+vegetation:
+  lc_source: "ESA/WorldCover/v200"   # ESA WorldCover 10m (2021)
+  lai_source: "MODIS/006/MOD15A2H"  # MODIS LAI 8-day 500m
+  resample_scale: 1000
+
+  # Clases de cobertura (WorldCover -> VIC class)
+  class_mapping:
+    10: 1   # Tree cover          -> Bosque tropical
+    20: 2   # Shrubland           -> Matorral
+    30: 3   # Grassland           -> Pastizal (Puna)
+    40: 4   # Cropland            -> Agricultura
+    50: 8   # Built-up            -> Urbano/Bare
+    60: 8   # Bare/sparse veg     -> Suelo desnudo
+    70: 8   # Snow and ice        -> Nieve
+    80: 9   # Permanent water     -> Agua
+    90: 1   # Herbaceous wetland  -> Bosque ripario
+    95: 1   # Mangroves           -> Bosque húmedo
+    100: 3  # Moss and lichen     -> Pastizal
+
+# ============================================================
+# Modelo de Enrutamiento (RVIC)
+# ============================================================
+routing:
+  method: "RVIC"          # RVIC o "linear"
+  dem_source: "USGS/SRTMGL1_003"    # SRTM 30m
+  dem_scale: 30
+
+  # Parámetros de RVIC
+  rvic:
+    velocity: 1.5          # Velocidad media del flujo (m/s)
+    diffusion: 2000        # Coeficiente de difusión (m2/s)
+    unit_hydrograph_dt: 3  # Paso de tiempo UH (horas)
+    max_day_uh: 100        # Máximo días para UH
+
+  # Parámetros estaciones de caudal
+  gauges:
+    - name: "Yuncan"
+      lat: -10.745
+      lon: -75.586
+      area_km2: ~3400
+
+# ============================================================
+# Salidas del Modelo
+# ============================================================
+outputs:
+  variables:
+    - "OUT_PREC"          # Precipitación total
+    - "OUT_EVAP"          # Evapotranspiración total
+    - "OUT_RUNOFF"        # Escorrentía superficial
+    - "OUT_BASEFLOW"      # Flujo base
+    - "OUT_SOIL_MOIST"    # Humedad del suelo (3 capas)
+    - "OUT_SWE"           # Equivalente agua en nieve
+    - "OUT_SNOW_DEPTH"    # Profundidad de nieve
+    - "OUT_STREAMFLOW"    # Caudal (solo con routing)
+    - "OUT_EVAP_CANOP"    # Evaporación del canopy
+    - "OUT_EVAP_BARE"     # Evaporación del suelo desnudo
+    - "OUT_TRANSP_VEG"    # Transpiración de la vegetación
+    - "OUT_NET_SHORT"     # Radiación neta de onda corta
+    - "OUT_NET_LONG"      # Radiación neta de onda larga
+    - "OUT_LATENT"        # Calor latente
+    - "OUT_SENSIBLE"      # Calor sensible
+    - "OUT_GRND_FLUX"     # Flujo de calor al suelo
+
+  frequency: "NDAYS 1"   # Salida diaria
+
+# ============================================================
+# Estaciones de Monitoreo (Opcional)
+# ============================================================
+monitoring_stations:
+  enabled: false          # Cambiar a true para incluir
+  stations:
+    - name: "Oxapampa"
+      lat: -10.577
+      lon: -75.393
+      type: "precipitation"
+    - name: "Pozuzo"
+      lat: -10.065
+      lon: -75.547
+      type: "precipitation"
+    - name: "Huancabamba"
+      lat: -10.430
+      lon: -75.950
+      type: "streamflow"

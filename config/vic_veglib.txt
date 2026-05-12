@@ -1,0 +1,80 @@
+########################################################################
+# VIC Vegetation Library
+# Cuenca Paucartambo - Peru
+# Clases basadas en ESA WorldCover + tipos de vegetacion andino-amazonica
+#
+# Formato: VegClass  Overstory  Rarc  Rmin  JANaib FEBaib ... DECalb
+#          JANlai FEBlai ... DEClai
+#          JANfpar FEBfpar ... DECfpar
+#          Windh  Displace  RootDepth1  RootFrac1  RootDepth2  RootFrac2
+#          Topt   Tfair   Frog   Wmax   Wres   Vmin
+#
+# Clase 1: Bosque Tropical Humedo (elevacion < 2000m)
+# Clase 2: Bosque de Neblina / Yungas (1500-3500m)
+# Clase 3: Pastizal de Puna (> 3500m)
+# Clase 4: Agricultura / Cultivos
+# Clase 5: Arbustos Andinos
+# Clase 6: Paramo / Jalca
+# Clase 7: Suelo Desnudo / Roca
+# Clase 8: Nieve / Glaciar
+# Clase 9: Cuerpos de Agua
+########################################################################
+
+#  vcls  overstory  rarc   rmin
+#  Albedo(12 meses)
+#  LAI(12 meses)
+#  roughness  displacement  root_depth1  root_frac1  root_depth2  root_frac2
+
+# Clase 1 - Bosque Tropical Humedo
+1  1  100.0  200.0
+  0.12  0.12  0.12  0.12  0.12  0.12  0.12  0.12  0.12  0.12  0.12  0.12
+  6.0   6.0   6.0   6.0   6.0   6.0   6.0   6.0   6.0   6.0   6.0   6.0
+  2.0  1.5  0.30  0.50  0.80  0.50
+
+# Clase 2 - Bosque de Neblina (Yungas / Cloud Forest)
+2  1  100.0  250.0
+  0.13  0.13  0.13  0.13  0.13  0.13  0.13  0.13  0.13  0.13  0.13  0.13
+  5.0   5.0   5.0   5.2   5.5   5.8   5.5   5.2   5.0   4.8   4.8   5.0
+  1.5  1.2  0.25  0.60  0.70  0.40
+
+# Clase 3 - Pastizal Puna / Ichu
+3  0   60.0  150.0
+  0.20  0.19  0.18  0.17  0.17  0.18  0.18  0.17  0.18  0.19  0.20  0.20
+  2.5   2.5   2.0   1.5   1.2   1.0   1.0   1.2   1.5   2.0   2.5   2.5
+  0.15  0.10  0.20  0.70  0.50  0.30
+
+# Clase 4 - Agricultura (Cultivos mixtos)
+4  0   70.0  120.0
+  0.18  0.17  0.16  0.15  0.15  0.15  0.15  0.15  0.16  0.17  0.18  0.18
+  2.0   2.5   3.5   4.0   3.5   2.0   1.5   2.0   3.0   3.5   2.5   2.0
+  0.10  0.07  0.20  0.80  0.40  0.20
+
+# Clase 5 - Arbustos Andinos
+5  0   80.0  150.0
+  0.17  0.17  0.16  0.15  0.15  0.16  0.16  0.16  0.16  0.17  0.17  0.17
+  2.5   2.5   2.2   2.0   1.8   1.5   1.5   1.8   2.0   2.2   2.5   2.5
+  0.20  0.15  0.25  0.65  0.60  0.35
+
+# Clase 6 - Paramo / Jalca (> 4000m)
+6  0   60.0  200.0
+  0.22  0.21  0.20  0.19  0.19  0.20  0.20  0.19  0.20  0.21  0.22  0.22
+  1.5   1.5   1.2   1.0   0.8   0.6   0.6   0.8   1.0   1.2   1.5   1.5
+  0.10  0.07  0.15  0.80  0.40  0.20
+
+# Clase 7 - Suelo Desnudo / Roca
+7  0  999.0  999.0
+  0.30  0.30  0.30  0.30  0.30  0.30  0.30  0.30  0.30  0.30  0.30  0.30
+  0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0
+  0.001 0.001 0.10 1.00  0.30  0.00
+
+# Clase 8 - Nieve / Glaciar
+8  0  999.0  999.0
+  0.70  0.70  0.70  0.70  0.70  0.70  0.70  0.70  0.70  0.70  0.70  0.70
+  0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0
+  0.001 0.001 0.10 1.00  0.10  0.00
+
+# Clase 9 - Agua (Lagos / Rios)
+9  0  999.0   50.0
+  0.07  0.07  0.07  0.07  0.07  0.07  0.07  0.07  0.07  0.07  0.07  0.07
+  0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0
+  0.001 0.001 0.10 1.00  0.10  0.00

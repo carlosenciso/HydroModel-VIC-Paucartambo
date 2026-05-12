@@ -1,0 +1,99 @@
+########################################################################
+# VIC Model Global Parameter File - Image Driver
+# Cuenca Paucartambo, Pasco - Peru
+# Generado automaticamente por 05_run_vic.py
+########################################################################
+
+#----------------------------------------------------------------------
+# SIMULATION CONTROL
+#----------------------------------------------------------------------
+NODES           3
+
+MODEL_STEPS_PER_DAY     4
+SNOW_STEPS_PER_DAY      4
+RUNOFF_STEPS_PER_DAY    4
+
+STARTMONTH      {start_month}
+STARTDAY        {start_day}
+STARTYEAR       {start_year}
+ENDMONTH        {end_month}
+ENDDAY          {end_day}
+ENDYEAR         {end_year}
+
+CALENDAR        PROLEPTIC_GREGORIAN
+OUT_TIME_UNITS  DAYS
+
+#----------------------------------------------------------------------
+# PHYSICS OPTIONS
+#----------------------------------------------------------------------
+FULL_ENERGY     FALSE
+CLOSE_ENERGY    FALSE
+FROZEN_SOIL     FALSE
+SNOW_BAND       FALSE
+JULY_TAVG_SUPPLIED  FALSE
+
+#----------------------------------------------------------------------
+# DOMAIN
+#----------------------------------------------------------------------
+DOMAIN          {domain_file}
+
+DOMAIN_TYPE     LAT     lat
+DOMAIN_TYPE     LON     lon
+DOMAIN_TYPE     MASK    mask
+DOMAIN_TYPE     AREA    area
+DOMAIN_TYPE     FRAC    frac
+DOMAIN_TYPE     YDIM    lat
+DOMAIN_TYPE     XDIM    lon
+
+#----------------------------------------------------------------------
+# FORCING DATA
+#----------------------------------------------------------------------
+FORCING1        {forcing_dir}forcing_
+
+FORCE_TYPE      PREC        PREC
+FORCE_TYPE      AIR_TEMP    AIR_TEMP
+FORCE_TYPE      WIND        WIND
+FORCE_TYPE      SWDOWN      SWDOWN
+FORCE_TYPE      LWDOWN      LWDOWN
+FORCE_TYPE      PRESSURE    PRESSURE
+FORCE_TYPE      VP          VP
+
+#----------------------------------------------------------------------
+# PARAMETER FILE
+#----------------------------------------------------------------------
+PARAMETERS      {parameters_file}
+
+#----------------------------------------------------------------------
+# STATE FILES (restart por año)
+#----------------------------------------------------------------------
+{init_state_line}
+STATENAME       {state_dir}/state
+STATEDATE       {end_year} {end_month} {end_day}
+STATESEC        64800
+
+#----------------------------------------------------------------------
+# OUTPUT CONFIGURATION
+#----------------------------------------------------------------------
+RESULT_DIR      {output_dir}
+
+OUTFILE         fluxes
+AGGFREQ         NDAYS   1
+HISTFREQ        NYEARS  1
+COMPRESS        FALSE
+OUT_FORMAT      NETCDF4_CLASSIC
+
+OUTVAR          OUT_PREC
+OUTVAR          OUT_EVAP
+OUTVAR          OUT_RUNOFF
+OUTVAR          OUT_BASEFLOW
+OUTVAR          OUT_SOIL_MOIST
+OUTVAR          OUT_SWE
+OUTVAR          OUT_SNOW_DEPTH
+OUTVAR          OUT_EVAP_CANOP
+OUTVAR          OUT_EVAP_BARE
+OUTVAR          OUT_TRANSP_VEG
+OUTVAR          OUT_SURF_TEMP
+
+########################################################################
+# FIN DEL ARCHIVO
+########################################################################

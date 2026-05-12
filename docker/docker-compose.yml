@@ -1,0 +1,116 @@
+version: "3.8"
+
+# ============================================================
+# Docker Compose - VIC Hydrological Model
+# Cuenca Paucartambo, Pasco - Peru
+# ============================================================
+#
+# Uso básico:
+#   docker-compose build
+#   docker-compose run --rm vic python scripts/01_download_gee.py
+#   docker-compose run --rm vic python scripts/05_run_vic.py
+#
+# Pipeline completo:
+#   docker-compose run --rm vic bash /app/run_all.sh
+#
+# Con servicio Jupyter:
+#   docker-compose up jupyter
+#   Abrir: http://localhost:8888
+
+services:
+  # ── Servicio principal: VIC + Python ──────────────────
+  vic:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: vic-paucartambo:latest
+    container_name: vic_paucartambo
+
+    # Variables de entorno
+    environment:
+      - EE_SERVICE_ACCOUNT_JSON_B64=${EE_SERVICE_ACCOUNT_JSON_B64}
+      - PYTHONPATH=/app
+      - OMP_NUM_THREADS=4
+      - PYTHONUNBUFFERED=1
+
+    # Volúmenes: montar datos y salidas del host
+    volumes:
+      # Código fuente (para desarrollo)
+      - ../scripts:/app/scripts
+      - ../config:/app/config
+      # Datos (persistentes en el host)
+      - ../data:/app/data
+      # Salidas
+      - ../plots:/app/plots
+      - ../animations:/app/animations
+      - ../logs:/app/logs
+
+    # Recursos de computación
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 8G
+        reservations:
+          cpus: "2"
+          memory: 4G
+
+    working_dir: /app
+    stdin_open: true
+    tty: true
+
+  # ── Pipeline completo (un solo comando) ───────────────
+  pipeline:
+    extends:
+      service: vic
+    container_name: vic_pipeline
+    command: bash /app/run_all.sh
+
+  # ── Jupyter Lab para análisis interactivo ─────────────
+  jupyter:
+    extends:
+      service: vic
+    container_name: vic_jupyter
+    command: >
+      jupyter lab
+        --ip=0.0.0.0
+        --port=8888
+        --no-browser
+        --allow-root
+        --NotebookApp.token=''
+        --NotebookApp.password=''
+    ports:
+      - "8888:8888"
+    volumes:
+      - ../scripts:/app/scripts
+      - ../config:/app/config
+      - ../data:/app/data
+      - ../plots:/app/plots
+      - ../animations:/app/animations
+      - ../notebooks:/app/notebooks
+
+  # ── Solo descarga de GEE (para correr independientemente) ─
+  download:
+    extends:
+      service: vic
+    container_name: vic_download
+    command: >
+      python scripts/01_download_gee.py
+        --start 2010-01-01
+        --end 2020-12-31
+
+  # ── Solo visualización ─────────────────────────────────
+  visualize:
+    extends:
+      service: vic
+    container_name: vic_visualize
+    command: >
+      bash -c "
+        python scripts/07_plot_timeseries.py &&
+        python scripts/08_create_animation.py --variable OUT_SOIL_MOIST --year 2015 &&
+        python scripts/08_create_animation.py --variable OUT_RUNOFF --year 2015
+      "
+
+networks:
+  default:
+    name: vic_network
