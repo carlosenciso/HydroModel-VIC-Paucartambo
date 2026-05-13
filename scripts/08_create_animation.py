@@ -21,6 +21,7 @@ Uso:
     python scripts/08_create_animation.py
     python scripts/08_create_animation.py --variable SOIL_MOIST --year 2015
     python scripts/08_create_animation.py --format gif --fps 8
+    python scripts/08_create_animation.py --streamflow --year-start 2024 --year-end 2025
 """
 
 import argparse
@@ -44,7 +45,7 @@ import cmocean
 
 warnings.filterwarnings("ignore")
 
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 PROJECT_DIR  = Path(__file__).parent.parent
 CONFIG_FILE  = PROJECT_DIR / "config" / "basin_config.yml"
 DATA_DIR     = PROJECT_DIR / "data"
@@ -224,7 +225,7 @@ def create_animation(
     # Outlet para marcador
     outlet = config["basin"]["outlet"]
 
-    # ── Crear figura ──────────────────────────────────────
+    # -- Crear figura ------------------------------------------
     fig = plt.figure(figsize=(14, 8), facecolor="black")
     gs = gridspec.GridSpec(
         2, 2,
@@ -238,7 +239,7 @@ def create_animation(
     ax_ts   = fig.add_subplot(gs[1, 0])
     ax_info = fig.add_subplot(gs[:, 1])
 
-    # ── Mapa base ─────────────────────────────────────────
+    # -- Mapa base ---------------------------------------------
     ax_map.set_extent([lons.min(), lons.max(), lats.min(), lats.max()],
                       crs=ccrs.PlateCarree())
     ax_map.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor="white", alpha=0.5)
@@ -246,7 +247,7 @@ def create_animation(
     ax_map.add_feature(cfeature.RIVERS, linewidth=0.3, edgecolor="cyan", alpha=0.4)
     ax_map.set_facecolor("black")
 
-    # ── Serie temporal (fondo) ────────────────────────────
+    # -- Serie temporal (fondo) --------------------------------
     basin_mean_ts = np.nanmean(data.reshape(nframes, -1), axis=1)
     ax_ts.set_facecolor("#1a1a1a")
     ax_ts.plot(range(nframes), basin_mean_ts,
@@ -256,7 +257,7 @@ def create_animation(
     ax_ts.set_ylabel(var_cfg["units"], color="white", fontsize=7)
     ax_ts.spines[:].set_color("gray")
 
-    # ── Panel de info ─────────────────────────────────────
+    # -- Panel de info -----------------------------------------
     ax_info.set_facecolor("black")
     ax_info.axis("off")
 
@@ -279,7 +280,7 @@ def create_animation(
         color="white", fontsize=9, ha="center", va="top", fontweight="bold"
     )
 
-    # ── Elementos de animación ────────────────────────────
+    # -- Elementos de animación --------------------------------
     # Frame inicial
     frame0 = np.where(mask == 0, np.nan, data[0])
     im = ax_map.pcolormesh(
@@ -320,7 +321,7 @@ def create_animation(
     # Fondo general
     fig.patch.set_facecolor("black")
 
-    # ── Función de actualización ──────────────────────────
+    # -- Función de actualización ------------------------------
     def update(frame_idx):
         frame_data = np.where(mask == 0, np.nan, data[frame_idx])
         im.set_array(frame_data.ravel())
@@ -346,7 +347,7 @@ def create_animation(
 
         return [im, date_text, vline, time_dot, stats_text]
 
-    # ── Crear animación ───────────────────────────────────
+    # -- Crear animación ---------------------------------------
     print(f"  Renderizando {nframes} frames...")
     anim = FuncAnimation(
         fig,
@@ -471,7 +472,8 @@ def create_snapshot_grid(
 
 
 def create_streamflow_animation(
-    year: int = None,
+    year_start: int = None,
+    year_end: int = None,
     freq: str = "7D",
     output_format: str = "gif",
     fps: int = 6,
@@ -479,341 +481,277 @@ def create_streamflow_animation(
     config: dict = None,
 ) -> Path:
     """
-    Crear animación que muestra:
-      - Mapa espacial: escorrentía total (OUT_RUNOFF + OUT_BASEFLOW)
-      - Panel inferior: caudal enrutado en Yuncan con cursor temporal
-      - Panel derecho: estadísticas y valor actual del caudal
+    Animacion con:
+      - Mapa: red fluvial D8 coloreada por caudal estimado en cada segmento
+      - Panel inferior: serie temporal de caudal construyendose progresivamente
+      - Panel derecho: estadisticas y caudal actual en el outlet
+
+    El caudal en cada segmento se estima escalando por acumulacion de flujo:
+        Q_seg(t) = (flow_acc_seg / max_acc) * Q_outlet(t)
 
     Args:
-        year: Año específico (None = todos los años)
-        freq: Frecuencia de muestreo de la variable espacial ('7D', '1D')
-        output_format: 'gif' o 'mp4'
-        fps: Frames por segundo
-        dpi: Resolución de la animación
-        config: Configuración del proyecto
-
-    Returns:
-        Path al archivo animado
+        year_start: Primer ano del periodo (None = desde el inicio)
+        year_end:   Ultimo ano del periodo  (None = hasta el final)
+        freq:       Frecuencia de frames ('7D' semanal, '1D' diario)
     """
     print("[ANIM] Creando animación de caudal enrutado (STREAMFLOW)...")
 
-    # ── Cargar caudal enrutado ────────────────────────────────
+    # ── Cargar caudal enrutado ────────────────────────────────────
     sf_csv = ROUTING_DIR / "streamflow_yuncan.csv"
     sf_nc  = ROUTING_DIR / "streamflow_yuncan.nc"
 
     if sf_nc.exists():
-        ds_sf = xr.open_dataset(sf_nc)
-        # Buscar variable de caudal (primera variable numérica)
-        sf_var = None
-        for v in ds_sf.data_vars:
-            if ds_sf[v].dtype in [np.float32, np.float64]:
-                sf_var = v
-                break
+        ds_sf  = xr.open_dataset(sf_nc)
+        sf_var = next((v for v in ds_sf.data_vars
+                       if ds_sf[v].dtype in [np.float32, np.float64]), None)
         if sf_var is None:
             raise ValueError(f"No se encontró variable numérica en {sf_nc}")
-        sf_times = pd.to_datetime(ds_sf.time.values)
+        sf_times  = pd.to_datetime(ds_sf.time.values)
         sf_values = ds_sf[sf_var].values.ravel()
         ds_sf.close()
         print(f"  Caudal desde NetCDF: {len(sf_times)} pasos | "
-              f"Media={np.nanmean(sf_values):.1f} m³/s | "
-              f"Máx={np.nanmax(sf_values):.1f} m³/s")
+              f"Media={np.nanmean(sf_values):.1f} m3/s | "
+              f"Max={np.nanmax(sf_values):.1f} m3/s")
     elif sf_csv.exists():
-        df_sf = pd.read_csv(sf_csv, parse_dates=["time"])
-        sf_times  = df_sf["time"].values
-        sf_times  = pd.to_datetime(sf_times)
+        df_sf     = pd.read_csv(sf_csv, parse_dates=["date"])
+        sf_times  = pd.to_datetime(df_sf["date"].values)
         sf_values = df_sf.iloc[:, 1].values.ravel().astype(float)
         print(f"  Caudal desde CSV: {len(sf_times)} pasos | "
-              f"Media={np.nanmean(sf_values):.1f} m³/s | "
-              f"Máx={np.nanmax(sf_values):.1f} m³/s")
+              f"Media={np.nanmean(sf_values):.1f} m3/s | "
+              f"Max={np.nanmax(sf_values):.1f} m3/s")
     else:
         raise FileNotFoundError(
             f"No se encontró caudal enrutado en {sf_csv} ni {sf_nc}. "
             "Ejecuta primero el script 06_run_routing.py."
         )
 
-    # Filtrar por año si se especifica
-    if year is not None:
-        mask_year = pd.DatetimeIndex(sf_times).year == year
-        sf_times  = sf_times[mask_year]
-        sf_values = sf_values[mask_year]
-        if len(sf_times) == 0:
-            raise ValueError(f"No hay datos de caudal para el año {year}")
+    # Filtrar por rango de años
+    if year_start is not None:
+        m = pd.DatetimeIndex(sf_times).year >= year_start
+        sf_times = sf_times[m]; sf_values = sf_values[m]
+    if year_end is not None:
+        m = pd.DatetimeIndex(sf_times).year <= year_end
+        sf_times = sf_times[m]; sf_values = sf_values[m]
+    if len(sf_times) == 0:
+        raise ValueError("No hay datos de caudal para el periodo solicitado")
 
-    # ── Cargar escorrentía total VIC ──────────────────────────
-    ds_domain = xr.open_dataset(DOMAIN_DIR / "domain.nc")
-    land_mask = ds_domain["mask"].values
-    lats = ds_domain.lat.values
-    lons = ds_domain.lon.values
-    ds_domain.close()
+    # ── Resamplear caudal a la frecuencia de frames ───────────────
+    sf_series       = pd.Series(sf_values, index=sf_times)
+    sf_resampled    = sf_series.resample(freq).mean().dropna()
+    times_plot      = sf_resampled.index
+    sf_frame_values = sf_resampled.values.astype(np.float64)
+    nframes         = len(times_plot)
+    print(f"  Frames ({freq}): {nframes} | "
+          f"Periodo: {times_plot[0].date()} -> {times_plot[-1].date()}")
 
-    flux_files = sorted(OUTPUT_DIR.glob("fluxes*.nc"))
-    if not flux_files:
-        raise FileNotFoundError("No se encontraron salidas VIC en data/outputs/")
+    # ── Estadisticas globales ─────────────────────────────────────
+    sf_mean = float(np.nanmean(sf_values))
+    sf_max  = float(np.nanmax(sf_values))
+    sf_min  = float(np.nanmin(sf_values))
+    sf_q95  = float(np.nanpercentile(sf_values, 95))
+    sf_q05  = float(np.nanpercentile(sf_values, 5))
 
-    ds_vic = xr.open_mfdataset(flux_files, combine="by_coords")
+    # ── Cargar red fluvial desde flow_direction.nc ────────────────
+    from matplotlib.collections import LineCollection as LC
 
-    # Seleccionar período coincidente con streamflow
-    t0, t1 = sf_times[0], sf_times[-1]
-    ds_vic = ds_vic.sel(time=slice(str(t0.date()), str(t1.date())))
+    ARCMAP_D8 = {
+        64: (-1, 0), 128: (-1, 1), 1: (0, 1),  2: (1, 1),
+         4: ( 1, 0),   8: ( 1,-1), 16: (0,-1), 32: (-1,-1),
+    }
+    fdr_nc = DOMAIN_DIR / "flow_direction.nc"
+    ds_fdr   = xr.open_dataset(fdr_nc)
+    fdr      = ds_fdr["flow_direction"].values.astype(int)
+    flow_acc = ds_fdr["flow_accumulation"].values.astype(float)
+    basin_id = ds_fdr["basin_id"].values
+    lats     = ds_fdr.lat.values
+    lons     = ds_fdr.lon.values
+    ds_fdr.close()
 
-    # Calcular escorrentía total = superficial + flujo base
-    if "OUT_RUNOFF" in ds_vic and "OUT_BASEFLOW" in ds_vic:
-        da_runoff = (ds_vic["OUT_RUNOFF"] + ds_vic["OUT_BASEFLOW"]).where(land_mask)
-        runoff_label = "Escorrentía Total (Sup. + Base)"
-    elif "OUT_RUNOFF" in ds_vic:
-        da_runoff = ds_vic["OUT_RUNOFF"].where(land_mask)
-        runoff_label = "Escorrentía Superficial"
-    else:
-        raise ValueError("No se encontró OUT_RUNOFF en las salidas VIC.")
+    nlat, nlon = fdr.shape
+    basin_mask = basin_id == 1
+    acc_thresh = float(np.nanpercentile(flow_acc[basin_mask], 70))
+    river_mask = basin_mask & (flow_acc >= acc_thresh)
+    max_acc    = float(flow_acc[river_mask].max())
 
-    # Resamplear si frecuencia especificada
-    if freq != "1D":
-        da_resampled = da_runoff.resample(time=freq).mean()
-    else:
-        da_resampled = da_runoff
+    # Construir segmentos (celda -> celda downstream)
+    segments  = []
+    seg_acc_n = []    # flow_acc normalizado [0..1] por segmento
+    ri, ci    = np.where(river_mask)
+    for r, c in zip(ri, ci):
+        dy, dx = ARCMAP_D8.get(int(fdr[r, c]), (0, 0))
+        nr, nc = r + dy, c + dx
+        if 0 <= nr < nlat and 0 <= nc < nlon and river_mask[nr, nc]:
+            segments.append([(lons[c], lats[r]), (lons[nc], lats[nr])])
+            seg_acc_n.append(flow_acc[r, c] / max_acc)
 
-    times_plot = pd.to_datetime(da_resampled.time.values)
-    runoff_data = da_resampled.values  # shape: (nframes, nlat, nlon)
-    nframes = len(times_plot)
-    ds_vic.close()
+    segments  = segments
+    seg_acc_n = np.array(seg_acc_n, dtype=np.float64)
+    linewidths = 0.4 + 2.8 * (seg_acc_n ** 0.4)
+    print(f"  Segmentos de rio: {len(segments)} (umbral acc>={acc_thresh:.0f})")
 
-    print(f"  Frames (escorrentía {freq}): {nframes} | "
-          f"Período: {times_plot[0].date()} → {times_plot[-1].date()}")
+    # Plasma: purpura -> magenta -> naranja -> amarillo (visible en fondo negro)
+    river_cmap = plt.cm.plasma
+    river_norm = mcolors.LogNorm(vmin=1.0, vmax=max(sf_max, 2.0))
+    outlet     = config["basin"]["outlet"]
 
-    # ── Mapear caudal a los mismos timesteps de la animación ──
-    # Para cada frame, encontrar el caudal más cercano en tiempo
-    sf_times_idx = pd.DatetimeIndex(sf_times)
-    sf_frame_values = np.array([
-        sf_values[np.argmin(np.abs(sf_times_idx - t))]
-        for t in times_plot
-    ])
-
-    # ── Escala de colores ─────────────────────────────────────
-    valid_r = runoff_data[np.isfinite(runoff_data)]
-    vmax_r  = np.nanpercentile(valid_r, 98) if len(valid_r) > 0 else 10.0
-    vmin_r  = 0.0
-    cmap_r  = cmocean.cm.rain
-    norm_r  = mcolors.Normalize(vmin=vmin_r, vmax=max(vmax_r, 0.1))
-
-    outlet = config["basin"]["outlet"]
-
-    # Estadísticas globales del caudal
-    sf_mean  = np.nanmean(sf_values)
-    sf_max   = np.nanmax(sf_values)
-    sf_min   = np.nanmin(sf_values)
-    sf_q95   = np.nanpercentile(sf_values, 95)
-    sf_q05   = np.nanpercentile(sf_values, 5)
-
-    # ── Crear figura ──────────────────────────────────────────
+    # ── Crear figura ──────────────────────────────────────────────
     fig = plt.figure(figsize=(15, 9), facecolor="black")
-    gs = gridspec.GridSpec(
-        2, 2,
-        figure=fig,
+    gs  = gridspec.GridSpec(
+        2, 2, figure=fig,
         width_ratios=[3, 1.2],
         height_ratios=[3.5, 1.5],
         hspace=0.08, wspace=0.12,
     )
-
     ax_map  = fig.add_subplot(gs[0, 0], projection=ccrs.PlateCarree())
     ax_ts   = fig.add_subplot(gs[1, 0])
     ax_info = fig.add_subplot(gs[:, 1])
 
-    # ── Mapa base ─────────────────────────────────────────────
+    # ── Mapa base ─────────────────────────────────────────────────
     ax_map.set_extent([lons.min(), lons.max(), lats.min(), lats.max()],
                       crs=ccrs.PlateCarree())
-    ax_map.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor="white", alpha=0.5)
-    ax_map.add_feature(cfeature.COASTLINE, linewidth=0.5, edgecolor="white", alpha=0.3)
-    ax_map.add_feature(cfeature.RIVERS, linewidth=0.4, edgecolor="deepskyblue", alpha=0.5)
-    ax_map.set_facecolor("#0a0a1a")
+    ax_map.add_feature(cfeature.BORDERS,   linewidth=0.5, edgecolor="#555555", alpha=0.6)
+    ax_map.add_feature(cfeature.COASTLINE, linewidth=0.5, edgecolor="#555555", alpha=0.4)
+    ax_map.set_facecolor("#010810")
 
-    # ── Serie temporal de caudal (fondo completo) ─────────────
-    ax_ts.set_facecolor("#0a0a1a")
-    # Dibujar el período completo de caudal como referencia
-    sf_x_full = np.linspace(0, nframes - 1, len(sf_times))
-    ax_ts.fill_between(sf_x_full, sf_values, alpha=0.15, color="deepskyblue")
-    ax_ts.plot(sf_x_full, sf_values, color="steelblue", linewidth=0.8, alpha=0.7)
-    # Línea de la media
-    ax_ts.axhline(sf_mean, color="gold", linewidth=0.8, linestyle="--", alpha=0.6)
-    ax_ts.set_xlim(0, nframes - 1)
-    ax_ts.set_ylim(bottom=0, top=sf_max * 1.15)
-    ax_ts.tick_params(colors="white", labelsize=7)
-    ax_ts.set_ylabel("Caudal (m³/s)", color="white", fontsize=8)
-    ax_ts.set_xlabel("Tiempo", color="white", fontsize=7)
-    ax_ts.spines[:].set_color("#444444")
-    ax_ts.text(nframes * 0.01, sf_mean * 1.05,
-               f"Media: {sf_mean:.1f}", color="gold", fontsize=6, alpha=0.8)
+    # Red fluvial como LineCollection coloreada por caudal estimado
+    # Q_seg(t) = clip((acc_seg / max_acc) * Q_outlet(t), 1, inf)
+    init_flow = np.clip(seg_acc_n * sf_frame_values[0], 1.0, None)
+    lc = LC(segments, cmap=river_cmap, norm=river_norm,
+            linewidths=linewidths, zorder=5,
+            transform=ccrs.PlateCarree())
+    lc.set_array(init_flow)
+    ax_map.add_collection(lc)
 
-    # Etiquetas del eje X (fechas)
-    tick_positions = np.linspace(0, nframes - 1, min(6, nframes)).astype(int)
-    tick_labels = [times_plot[i].strftime("%b'%y") for i in tick_positions]
-    ax_ts.set_xticks(tick_positions)
-    ax_ts.set_xticklabels(tick_labels, color="white", fontsize=6)
+    # Outlet marker
+    ax_map.plot(outlet["lon"], outlet["lat"],
+                "^", color="yellow", markersize=11,
+                transform=ccrs.PlateCarree(), zorder=10,
+                markeredgecolor="white", markeredgewidth=0.5)
+    ax_map.text(outlet["lon"] + 0.04, outlet["lat"] + 0.04,
+                outlet["name"], color="yellow", fontsize=7,
+                transform=ccrs.PlateCarree(), zorder=11)
+    date_text = ax_map.set_title("", color="white", fontsize=10, pad=5, fontweight="bold")
 
-    # ── Panel de info (estático) ──────────────────────────────
-    ax_info.set_facecolor("black")
-    ax_info.axis("off")
-
-    # Título de la cuenca
-    ax_info.text(
-        0.5, 0.97,
-        f"Cuenca {config['basin']['name']}\n{config['basin']['department']}, Perú",
-        transform=ax_info.transAxes,
-        color="white", fontsize=9, ha="center", va="top", fontweight="bold"
-    )
-    ax_info.text(
-        0.5, 0.88,
-        f"Central H. {outlet['name']}",
-        transform=ax_info.transAxes,
-        color="deepskyblue", fontsize=8, ha="center", va="top"
-    )
-
-    # Separador
-    ax_info.plot([0, 1], [0.85, 0.85], color="#444444", linewidth=0.5,
-                 transform=ax_info.transAxes, clip_on=False)
-
-    # Estadísticas globales (estáticas)
-    stats_global = (
-        f"  ─── Estadísticas ───\n"
-        f"  Media:   {sf_mean:6.1f} m³/s\n"
-        f"  Máximo:  {sf_max:6.1f} m³/s\n"
-        f"  Mínimo:  {sf_min:6.1f} m³/s\n"
-        f"  Q95:     {sf_q95:6.1f} m³/s\n"
-        f"  Q05:     {sf_q05:6.1f} m³/s"
-    )
-    ax_info.text(
-        0.05, 0.79,
-        stats_global,
-        transform=ax_info.transAxes,
-        color="#aaaaaa", fontsize=7.5,
-        ha="left", va="top", family="monospace"
-    )
-
-    # Separador
-    ax_info.plot([0, 1], [0.52, 0.52], color="#444444", linewidth=0.5,
-                 transform=ax_info.transAxes, clip_on=False)
-
-    # Colorbar de escorrentía
-    sm = plt.cm.ScalarMappable(cmap=cmap_r, norm=norm_r)
-    sm.set_array([])
+    # Colorbar de la red fluvial
+    sm_r    = plt.cm.ScalarMappable(cmap=river_cmap, norm=river_norm)
+    sm_r.set_array([])
     cbar_ax = fig.add_axes([0.77, 0.20, 0.02, 0.30])
-    cbar = plt.colorbar(sm, cax=cbar_ax)
-    cbar.set_label(f"{runoff_label}\n(mm/día)", color="white", fontsize=7)
+    cbar    = plt.colorbar(sm_r, cax=cbar_ax)
+    cbar.set_label("Caudal estimado\n(m3/s)", color="white", fontsize=7)
     cbar.ax.yaxis.set_tick_params(color="white")
     plt.setp(plt.getp(cbar.ax.axes, "yticklabels"), color="white", fontsize=6)
     cbar.outline.set_edgecolor("#555555")
 
-    # ── Elementos dinámicos ───────────────────────────────────
-    frame0 = np.where(land_mask == 0, np.nan, runoff_data[0])
-    im = ax_map.pcolormesh(
-        lons, lats, frame0,
-        transform=ccrs.PlateCarree(),
-        cmap=cmap_r,
-        norm=norm_r,
-        rasterized=True,
+    # ── Serie temporal progresiva (empieza vacia) ─────────────────
+    ax_ts.set_facecolor("#0a0a1a")
+    ax_ts.axhline(sf_mean, color="gold", linewidth=0.8, linestyle="--", alpha=0.6)
+    ax_ts.set_xlim(0, nframes - 1)
+    ax_ts.set_ylim(bottom=0, top=sf_max * 1.15)
+    ax_ts.tick_params(colors="white", labelsize=7)
+    ax_ts.set_ylabel("Caudal (m3/s)", color="white", fontsize=8)
+    ax_ts.set_xlabel("Tiempo",        color="white", fontsize=7)
+    ax_ts.spines[:].set_color("#444444")
+    ax_ts.text(nframes * 0.01, sf_mean * 1.05,
+               f"Media: {sf_mean:.1f}", color="gold", fontsize=6, alpha=0.8)
+
+    tick_positions = np.linspace(0, nframes - 1, min(6, nframes)).astype(int)
+    tick_labels    = [pd.Timestamp(times_plot[i]).strftime("%b'%y")
+                      for i in tick_positions]
+    ax_ts.set_xticks(tick_positions)
+    ax_ts.set_xticklabels(tick_labels, color="white", fontsize=6)
+
+    prog_line, = ax_ts.plot([], [], color="#00b4d8", linewidth=1.3, zorder=4)
+    tip_dot,   = ax_ts.plot([], [], "o", color="white", markersize=5, zorder=5)
+
+    # ── Panel de info (estatico) ──────────────────────────────────
+    ax_info.set_facecolor("black")
+    ax_info.axis("off")
+
+    ax_info.text(
+        0.5, 0.97,
+        f"Cuenca {config['basin']['name']}\n{config['basin']['department']}, Peru",
+        transform=ax_info.transAxes,
+        color="white", fontsize=9, ha="center", va="top", fontweight="bold"
     )
-
-    # Marcador del outlet
-    ax_map.plot(outlet["lon"], outlet["lat"],
-                "^", color="yellow", markersize=12,
-                transform=ccrs.PlateCarree(), zorder=10,
-                markeredgecolor="white", markeredgewidth=0.5)
-    ax_map.text(outlet["lon"] + 0.05, outlet["lat"] + 0.05,
-                outlet["name"], color="yellow", fontsize=7,
-                transform=ccrs.PlateCarree(), zorder=11)
-
-    # Título del mapa (dinámico)
-    date_text = ax_map.set_title(
-        "", color="white", fontsize=10, pad=5,
-        fontweight="bold"
+    ax_info.text(
+        0.5, 0.88, f"Central H. {outlet['name']}",
+        transform=ax_info.transAxes,
+        color="#00b4d8", fontsize=8, ha="center", va="top"
     )
+    ax_info.plot([0, 1], [0.85, 0.85], color="#333333", linewidth=0.5,
+                 transform=ax_info.transAxes, clip_on=False)
 
-    # Cursor temporal en la serie de caudal
-    vline = ax_ts.axvline(x=0, color="red", linewidth=1.5, zorder=5)
-    time_dot = ax_ts.plot(
-        [0], [sf_frame_values[0]],
-        "o", color="red", markersize=6, zorder=6
-    )[0]
+    ax_info.text(
+        0.05, 0.79,
+        (f"  --- Estadisticas ---\n"
+         f"  Media:   {sf_mean:6.1f} m3/s\n"
+         f"  Maximo:  {sf_max:6.1f} m3/s\n"
+         f"  Minimo:  {sf_min:6.1f} m3/s\n"
+         f"  Q95:     {sf_q95:6.1f} m3/s\n"
+         f"  Q05:     {sf_q05:6.1f} m3/s"),
+        transform=ax_info.transAxes,
+        color="#aaaaaa", fontsize=7.5, ha="left", va="top", family="monospace"
+    )
+    ax_info.plot([0, 1], [0.52, 0.52], color="#333333", linewidth=0.5,
+                 transform=ax_info.transAxes, clip_on=False)
 
-    # Caudal actual (panel dinámico en ax_info)
+    # Caudal actual (dinamico)
     current_q_text = ax_info.text(
-        0.5, 0.47,
-        "",
+        0.5, 0.47, "",
         transform=ax_info.transAxes,
-        color="white", fontsize=22,
-        ha="center", va="top", fontweight="bold"
+        color="white", fontsize=22, ha="center", va="top", fontweight="bold"
     )
-    current_unit_text = ax_info.text(
-        0.5, 0.35,
-        "m³/s",
-        transform=ax_info.transAxes,
-        color="#aaaaaa", fontsize=10,
-        ha="center", va="top"
-    )
-    current_label = ax_info.text(
-        0.5, 0.30,
-        "Caudal enrutado",
-        transform=ax_info.transAxes,
-        color="#888888", fontsize=7.5,
-        ha="center", va="top"
-    )
+    ax_info.text(0.5, 0.35, "m3/s",
+                 transform=ax_info.transAxes,
+                 color="#aaaaaa", fontsize=10, ha="center", va="top")
+    ax_info.text(0.5, 0.30, "Caudal enrutado",
+                 transform=ax_info.transAxes,
+                 color="#666666", fontsize=7.5, ha="center", va="top")
 
-    # Barra de progreso del caudal usando un axes secundario en ax_info
     ax_bar = ax_info.inset_axes([0.05, 0.10, 0.90, 0.06])
-    ax_bar.set_xlim(0, 1)
-    ax_bar.set_ylim(0, 1)
-    ax_bar.set_facecolor("#222222")
-    ax_bar.set_xticks([])
-    ax_bar.set_yticks([])
+    ax_bar.set_xlim(0, 1); ax_bar.set_ylim(0, 1)
+    ax_bar.set_facecolor("#111111")
+    ax_bar.set_xticks([]); ax_bar.set_yticks([])
     ax_bar.spines[:].set_visible(False)
-    bar_patch = plt.Rectangle((0, 0), 0.0, 1.0, color="deepskyblue")
+    bar_patch = plt.Rectangle((0, 0), 0.0, 1.0, color="#00b4d8")
     ax_bar.add_patch(bar_patch)
-
     fig.patch.set_facecolor("black")
 
-    # ── Función de actualización ──────────────────────────────
+    # ── Funcion de actualizacion ──────────────────────────────────
     def update(frame_idx):
-        # Actualizar mapa de escorrentía
-        frame_data = np.where(land_mask == 0, np.nan, runoff_data[frame_idx])
-        im.set_array(frame_data.ravel())
+        # Actualizar colores de la red fluvial
+        q_outlet = float(sf_frame_values[frame_idx])
+        lc.set_array(np.clip(seg_acc_n * q_outlet, 1.0, None))
 
-        # Actualizar fecha en el título del mapa
-        date_str = times_plot[frame_idx].strftime("%d %b %Y")
-        date_text.set_text(f"Escorrentía → Caudal   {date_str}")
+        date_str = pd.Timestamp(times_plot[frame_idx]).strftime("%d %b %Y")
+        date_text.set_text(f"Red fluvial — Caudal   {date_str}")
 
-        # Actualizar cursor temporal
-        vline.set_xdata([frame_idx, frame_idx])
-        q_now = float(sf_frame_values[frame_idx])
-        time_dot.set_data([frame_idx], [q_now])
+        # Serie temporal progresiva
+        prog_line.set_data(range(frame_idx + 1), sf_frame_values[:frame_idx + 1])
+        tip_dot.set_data([frame_idx], [sf_frame_values[frame_idx]])
 
-        # Actualizar caudal actual en el panel de info
-        current_q_text.set_text(f"{q_now:.1f}")
-
-        # Color del texto según comparación con la media
-        if q_now > sf_q95:
+        # Caudal actual en panel info
+        current_q_text.set_text(f"{q_outlet:.1f}")
+        if q_outlet > sf_q95:
             current_q_text.set_color("#ff4444")
-        elif q_now > sf_mean:
-            current_q_text.set_color("deepskyblue")
+        elif q_outlet > sf_mean:
+            current_q_text.set_color("#00b4d8")
         else:
             current_q_text.set_color("#aaddff")
 
-        # Actualizar barra de progreso
-        frac = min(max((q_now - sf_min) / max(sf_max - sf_min, 0.01), 0), 1)
+        frac = min(max((q_outlet - sf_min) / max(sf_max - sf_min, 0.01), 0), 1)
         bar_patch.set_width(frac)
 
-        return [im, date_text, vline, time_dot, current_q_text, bar_patch]
+        return [lc, date_text, prog_line, tip_dot, current_q_text, bar_patch]
 
-    # ── Crear animación ───────────────────────────────────────
+    # ── Crear y guardar animacion ─────────────────────────────────
     print(f"  Renderizando {nframes} frames...")
     anim = FuncAnimation(
-        fig,
-        update,
-        frames=nframes,
-        blit=True,
-        interval=1000 / fps,
+        fig, update, frames=nframes,
+        blit=True, interval=1000 / fps,
     )
 
-    # Guardar
-    year_str = str(year) if year else "all"
+    year_str    = (f"{year_start}-{year_end}" if year_start and year_end else "all")
     output_name = f"animation_STREAMFLOW_{year_str}.{output_format}"
     output_path = ANIMS_DIR / output_name
 
@@ -824,7 +762,7 @@ def create_streamflow_animation(
                                   metadata={"title": "Caudal Yuncan - Paucartambo"})
             anim.save(str(output_path), writer=writer, dpi=dpi)
         except Exception as e:
-            print(f"  [WARNING] MP4 falló ({e}). Usando GIF como fallback...")
+            print(f"  [WARNING] MP4 fallo ({e}). Usando GIF como fallback...")
             output_path = ANIMS_DIR / output_name.replace(".mp4", ".gif")
             writer = PillowWriter(fps=fps)
             anim.save(str(output_path), writer=writer, dpi=dpi)
@@ -833,7 +771,7 @@ def create_streamflow_animation(
         anim.save(str(output_path), writer=writer, dpi=dpi)
 
     plt.close(fig)
-    print(f"[OK] Animación de caudal guardada: {output_path}")
+    print(f"[OK] Animacion de caudal guardada: {output_path}")
     return output_path
 
 
@@ -848,7 +786,11 @@ def main():
         help="Variable a animar",
     )
     parser.add_argument("--year", type=int, default=None,
-                        help="Año a animar (None = todos)")
+                        help="Año único a animar (para --all-vars y --snapshots)")
+    parser.add_argument("--year-start", type=int, default=None, dest="year_start",
+                        help="Primer año del período (para --streamflow)")
+    parser.add_argument("--year-end",   type=int, default=None, dest="year_end",
+                        help="Último año del período (para --streamflow)")
     parser.add_argument("--freq", default="7D",
                         help="Frecuencia de frames (7D=semanal, 1D=diario)")
     parser.add_argument("--format", dest="output_format",
@@ -874,8 +816,13 @@ def main():
 
     if args.streamflow:
         create_streamflow_animation(
-            args.year, args.freq,
-            args.output_format, args.fps, args.dpi, config
+            year_start=args.year_start,
+            year_end=args.year_end,
+            freq=args.freq,
+            output_format=args.output_format,
+            fps=args.fps,
+            dpi=args.dpi,
+            config=config,
         )
     elif args.all_vars:
         # Verificar qué variables están disponibles
@@ -909,7 +856,7 @@ def main():
                 args.output_format, args.fps, args.dpi, config
             )
 
-    print(f"\n[✓] Animaciones guardadas en: {ANIMS_DIR}")
+    print(f"\n[OK] Animaciones guardadas en: {ANIMS_DIR}")
 
 
 if __name__ == "__main__":

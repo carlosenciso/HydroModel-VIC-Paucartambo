@@ -695,7 +695,7 @@ def run_rvic_parameters(cfg_path: Path) -> Path:
 
 
 def run_rvic_convolution(cfg_path: Path) -> Path:
-    """Run rvic.convolution, return path to history output."""
+    """Run rvic.convolution, return path to history directory."""
     from rvic.convolution import convolution
     print("[RVIC] Running rvic.convolution …")
     convolution(str(cfg_path))
@@ -704,25 +704,30 @@ def run_rvic_convolution(cfg_path: Path) -> Path:
     nc_files = sorted(hist_dir.glob("*.nc"))
     if not nc_files:
         raise FileNotFoundError(f"RVIC convolution output not found in {hist_dir}")
-    hist_file = nc_files[-1]
-    print(f"[RVIC] History file: {hist_file}")
-    return hist_file
+    print(f"[RVIC] History files found: {len(nc_files)}")
+    for f in nc_files:
+        print(f"  {f.name}")
+    return hist_dir
 
 
-def extract_streamflow_from_rvic(hist_file: Path, config: dict) -> pd.Series:
-    """Extract streamflow time series from RVIC history output."""
-    ds = xr.open_dataset(hist_file)
+def extract_streamflow_from_rvic(hist_dir: Path, config: dict,
+                                  year_start: int = None, year_end: int = None) -> pd.Series:
+    """Extract streamflow time series by concatenating all RVIC history files."""
+    nc_files = sorted(hist_dir.glob("*.nc"))
+    if not nc_files:
+        raise FileNotFoundError(f"No RVIC history files in {hist_dir}")
+
+    print(f"[RVIC] Concatenating {len(nc_files)} history file(s)…")
+    ds = xr.open_mfdataset(nc_files, combine="by_coords")
     print(f"[RVIC] History variables: {list(ds.data_vars)}")
     print(f"[RVIC] History dimensions: {dict(ds.dims)}")
+    print(f"[RVIC] Time range: {pd.to_datetime(ds.time.values[0]).date()} "
+          f"→ {pd.to_datetime(ds.time.values[-1]).date()}")
 
-    outlet = config["basin"]["outlet"]
-
-    # RVIC history may have outlet_name dimension
     if "outlet_name" in ds.dims or "outlet" in ds.dims:
         sf = ds["streamflow"].isel(outlet=0) if "outlet" in ds.dims else ds["streamflow"].isel(outlet_name=0)
     elif "streamflow" in ds.data_vars:
         sf = ds["streamflow"]
-        # If 2D (time, outlet), take first outlet
         if sf.ndim > 1:
             sf = sf.isel({d: 0 for d in sf.dims if d != "time"})
     else:
@@ -730,6 +735,15 @@ def extract_streamflow_from_rvic(hist_file: Path, config: dict) -> pd.Series:
 
     times = pd.to_datetime(ds.time.values)
     series = pd.Series(sf.values, index=times, name="streamflow_m3s")
+
+    # Trim to requested period (drops warm-up years)
+    if year_start is not None:
+        series = series[series.index.year >= year_start]
+    if year_end is not None:
+        series = series[series.index.year <= year_end]
+
+    print(f"[RVIC] Extracted: {len(series)} days "
+          f"({series.index[0].date()} → {series.index[-1].date()})")
     return series
 
 
@@ -967,8 +981,8 @@ def main():
     print("\n[→] Running RVIC convolution…")
     conv_cfg = write_rvic_convolution_config(params_file, args.start, args.end)
     try:
-        hist_file = run_rvic_convolution(conv_cfg)
-        sf = extract_streamflow_from_rvic(hist_file, config)
+        hist_dir = run_rvic_convolution(conv_cfg)
+        sf = extract_streamflow_from_rvic(hist_dir, config, args.start, args.end)
     except Exception as e:
         print(f"[ERROR] RVIC convolution failed: {e}")
         import traceback; traceback.print_exc()
