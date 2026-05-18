@@ -1,24 +1,70 @@
-# NetCDF files
+# ============================================================
+# Directorios pesados - no se suben al repositorio
+# ============================================================
+data/
+animations/
+logs/
+
+# ============================================================
+# Formatos de datos pesados (si aparecen fuera de data/)
+# ============================================================
 *.nc
 *.nc4
 *.cdf
 *.netcdf
-
-# GeoTIFF / TIFF files
 *.tif
 *.tiff
 *.geotiff
+*.aux.xml
+*.hdf
+*.h5
+*.hdf5
+*.tar
+*.gz
 
-# Optional: compressed raster formats
-*.tif.gz
-*.tiff.gz
-# Ignore NetCDF files everywhere (including subdirectories)
-**/*.nc
-**/*.nc4
-**/*.cdf
-**/*.netcdf
+# ============================================================
+# Artefactos de compilación LaTeX
+# ============================================================
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.nlo
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+texput.log
 
-# Ignore TIFF / GeoTIFF files everywhere
-**/*.tif
-**/*.tiff
-**/*.geotiff
+# El PDF del reporte SÍ se sube
+!report/main.pdf
+
+# ============================================================
+# Python / Jupyter
+# ============================================================
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.env
+.venv/
+venv/
+*.egg-info/
+
+# ============================================================
+# CSV de resultados (plots/)
+# ============================================================
+plots/*.csv
+
+# ============================================================
+# Sistema operativo y editores
+# ============================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
