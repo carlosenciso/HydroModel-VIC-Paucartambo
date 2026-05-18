@@ -1,0 +1,112 @@
+\documentclass[a4]{article}
+\usepackage{xcolor}
+% \definecolor{mycolor}{RGB}{0, 102, 204}
+% \renewcommand\thesection{\textcolor{mycolor}{\arabic{section}}}
+% Standard margins for SLU is 3.5 cm on each side. Add this code if desired:
+\usepackage[a4paper, left=3.0cm,right=2.5cm]{geometry}
+\usepackage{fancyhdr}
+% \usepackage[hidelinks]{hyperref}
+\usepackage[
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=blue,
+    citecolor=black,
+    filecolor=black,
+    pdfborder={0 0 0}
+]{hyperref}
+\pagestyle{fancy}
+\fancyhf{} 
+% Definir encabezado (Header)
+% \fancyhead[L]{}  % Texto a la izquierda del encabezado
+\fancyhf{} % clear all header and footer fields
+\fancyhead[C]{Estudio Hidrológico del Rio Paucartambo - C.H. Yuncan} % Texto centrado en el encabezado
+\fancyhead[R]{Engie Energía Perú}  % Número de página a la derecha
+\fancyfoot[C]{\thepage} % center bottom page number
+% Necessary packages
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\usepackage{graphicx}
+\usepackage{newtxtext}
+\usepackage{float}
+\usepackage{comment}
+\usepackage{longtable}  % For acronyms
+\usepackage{nomencl}    % For nomenclature
+\usepackage{setspace} 
+
+% Define nomenclature
+\usepackage[utf8]{inputenc} %You can ommit it since 2018
+\usepackage[T1]{fontenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel} 
+\makenomenclature
+\usepackage{etoolbox}
+\usepackage{mathptmx}
+\usepackage{fancyhdr}
+\usepackage{amsmath,amsfonts,amssymb} 
+\usepackage{caption} 
+\usepackage{setspace}
+\usepackage{graphicx} 
+\usepackage{csquotes}
+\usepackage{changepage}
+\usepackage{subcaption}	% Para subfiguras
+\usepackage{makeidx}
+\usepackage{multirow}
+\usepackage{array} 
+\usepackage{float}
+\usepackage{pdflscape} % Página horizontal
+\usepackage{lscape} % Hoja horizontal
+\usepackage{pdfpages}
+\usepackage{wallpaper}
+\usepackage{acronym}
+\usepackage{tikz}% Para desarrollar funciones
+\usepackage{url} % Para insertar url sin problemas
+\usepackage{color} % Para texto con diferente colores
+\usepackage{rotating}
+\usepackage{tablefootnote} 
+\usepackage{lipsum}
+\usepackage{enumitem}
+\usepackage[backend=biber,style=apa,citestyle = apa, sorting = nyt]{biblatex}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{caption}
+\usepackage{siunitx}
+\usepackage{booktabs}
+\usepackage{pdflscape}
+\usepackage{graphicx}
+\usepackage{pdflscape}
+
+\usepackage{textcomp}
+
+\usepackage{siunitx}
+\sisetup{
+  detect-weight = true,
+  detect-family = true,
+  input-symbols = (),
+  table-align-text-pre = false
+}
+
+\addbibresource{References/References.bib}
+% Identation
+\captionsetup[table]{labelfont=bf,textfont=bf,skip=6pt}
+% This command changes the font style where SLU promotes Arial
+\newenvironment{myfont}{\fontfamily{phv}\selectfont}{\par}
+\begin{document}
+\pagestyle{fancy}
+% Title page
+\include{titlePageSLU}
+% Include nomenclature
+\include{Nomenclature/Nomenclature}
+% Table of Contents
+\clearpage
+\tableofcontents
+\clearpage
+\pagestyle{fancy}
+% Include Introduction
+\input{Content/Intro}
+\input{Content/Objectives}
+\input{Content/Methodology}
+% \pagestyle{fancy}
+
+% Bibliography (if needed)
+% \printbibliography
+\end{document}
