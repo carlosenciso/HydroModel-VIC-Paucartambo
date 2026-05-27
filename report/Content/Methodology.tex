@@ -8,9 +8,9 @@ y de reanálisis, y (2) la caracterización del medio físico (topografía, suel
 vegetación), que constituyen los insumos para el modelo hidrológico distribuido VIC (Variable Infiltration Capacity) \parencite{liang1994simple}. El
 modelo VIC genera los caudales promedio en los puntos indicados de la cuenca
 Paucartambo, desde el QN-901 hasta el QN-911. Como etapa complementaria, las
-salidas del modelo fueron corregidas mediante una red neuronal artificial, con
-el fin de ajustar los caudales simulados a los datos observados disponibles en
-la cuenca.
+salidas del modelo fueron corregidas mediante ajuste por desviación de sesgo
+(\textit{bias correction}), con el fin de ajustar los caudales simulados a los
+datos observados disponibles en la cuenca.
 
 \begin{figure}[H]
 \centering
@@ -40,15 +40,16 @@ dominio}; \draw[arr] (chirps.south)  -- ++(0,-0.3) -| (prep.north west);
 % Fila 4: routing
 \node[proc] (routing) at (0, -4.7) {Routing hidrológico
     (mm\,$\to$\,m\textsuperscript{3}/s)}; \draw[arr] (vic) -- (routing);
-% Fila 5: corrección RNA
-\node[proc] (nn) at (0, -5.9) {Corrección por Redes Neuronales}; \draw[arr]
-(routing) -- (nn);
+% Fila 5: corrección por sesgo
+\node[proc] (bias) at (0, -5.9) {Corrección por sesgo\\
+    (\textit{bias correction})}; \draw[arr]
+(routing) -- (bias);
 % Fila 6: salida
 \node[resbox] (qnat) at (0, -7.1) {Caudales naturalizados mensuales\\
-     QN-908 / QN-909 / QN-910 / QN-901,911 / QN-903,905}; \draw[arr] (nn) --
+     QN-908 / QN-909 / QN-910 / QN-901,911 / QN-903,905}; \draw[arr] (bias) --
 (qnat);
 \end{tikzpicture}
-\caption{Esquema metodológico para la estimación de caudales promedio mensuales naturales utilizando información satelital, reanálisis climático y corrección mediante redes neuronales.}
+\caption{Esquema metodológico para la estimación de caudales promedio mensuales naturales utilizando información satelital, reanálisis climático y corrección por sesgo.}
 \captionsetup{labelfont=rm,skip=2pt,textfont=rm,font=small}
 \label{fig:1a}
 \end{figure}
@@ -78,7 +79,7 @@ Meteorológicos de Mediano Plazo (ECMWF), disponible a través de la plataforma
 Google Earth Engine. ERA5-Land proporciona variables atmosféricas a alta
 resolución espacial (aproximadamente 9 km) y cobertura global continua desde
 1981 hasta la actualidad. Para el presente estudio, se han extraído y procesado
-las variables necesarias para forzar el modelo hidrológico \textbf{VIC},
+las variables necesarias para forzar el modelo hidrológico VIC,
 incluyendo temperatura del aire a 2 metros, humedad relativa, radiación solar
 superficial y velocidad del viento. Dado su enfoque orientado a aplicaciones de
 superficie terrestre, ERA5-Land representa una mejora significativa respecto a
@@ -155,7 +156,7 @@ lo largo del año y humedad relativa también considerada húmeda.
 \begin{figure}[H]
     \centering
     \includegraphics[width=.90\textwidth]{Figures/fig03.png}
-    \caption{Diagrama Topológico. Cuenca de los Ríos Huachon y Paucartambo}
+    \caption{Diagrama Topológico. Cuenca de los Ríos Huachón y Paucartambo}
     \captionsetup{labelfont=rm,skip=2pt,textfont=rm,font=small}
     \label{fig:3a}
 \end{figure}
@@ -167,7 +168,7 @@ Precipitación Yaupi 2025.xls"), los caudales promedio mensuales del año 2025 e
 el Anexo 2 ("02 QN.Paucartambo 2025.xls"), y los volúmenes de embalses en el
 Anexo 3 ("03 Volúmenes 2025.xls").
 
-\subsubsection{Validación de precipitación Satelital CHIRPS}
+\subsubsection{Validación de precipitación satelital CHIRPS}
 
 Como parte del balance hídrico, en el presente estudio se emplearon datos
 diarios de precipitación provenientes del producto satelital
@@ -204,7 +205,7 @@ estaciones meteorológicas del SENAMHI/Statkrafts, en el periodo en que ambas
 fuentes se superponen (enero de 1998 a diciembre de 2025). Para este análisis se
 extrajeron las series temporales de CHIRPS en las ubicaciones correspondientes a
 las estaciones físicas, y se aplicaron técnicas de corrección de sesgo mediante
-ajuste por cuantiles (\textbf{quantile mapping}) con el fin de mejorar la
+ajuste por cuantiles (quantile mapping) con el fin de mejorar la
 representatividad local de los datos satelitales. La validación del desempeño
 del producto corregido se llevó a cabo mediante métricas estadísticas
 ampliamente utilizadas en estudios hidrológicos: el coeficiente de eficiencia de
@@ -221,7 +222,7 @@ coeficiente de determinación (R$^2$) y el índice de concordancia de Willmott (
     \includegraphics[angle=90, width=.31\textwidth]{Figures/fig04-2.png}
     \includegraphics[angle=90, width=.31\textwidth]{Figures/fig04-3.png}
     \captionsetup{labelfont=rm,skip=2pt,textfont=rm,font=small}
-    \label{fig:4a}
+    \label{fig:chirps_validacion_1}
 \end{figure}
 \newpage
 \begin{figure}[H]
@@ -230,7 +231,7 @@ coeficiente de determinación (R$^2$) y el índice de concordancia de Willmott (
     \includegraphics[angle=90, width=.31\textwidth]{Figures/fig04-5.png}
     \includegraphics[angle=90, width=.31\textwidth]{Figures/fig04-6.png}
     \captionsetup{labelfont=rm,skip=2pt,textfont=rm,font=small}
-    \label{fig:4b}
+    \label{fig:chirps_validacion_2}
 \end{figure}
 \newpage
 
@@ -247,7 +248,7 @@ todas las estaciones evaluadas.
 \scriptsize
 \begin{tabular}{l c c c c c c c}
 \toprule
-\textbf{Indicador} & Altos Machay & Chalhuacocha & Hacienda Huanca & Huachon &
+\textbf{Indicador} & Altos Machay & Chalhuacocha & Hacienda Huanca & Huachón &
 Huallamayo & Jaico & Lechecocha \\
 \midrule
 NSE        & 0.73 & 0.67 & 0.64 & 0.54 & 0.51 & 0.75 & 0.73 \\
@@ -272,7 +273,7 @@ Willmott d & 0.93 & 0.91 & 0.91 & 0.89 & 0.87 & 0.93 & 0.93 \\
 \begin{tabular}{l c c c c c c c c}
 \toprule
 \textbf{Indicador} & Luxopata & Machavado & Manto & Pacchapata & Paucartambo &
-Puagmaray & Victoria II & Yuncan \\
+Puagmaray & Victoria II & Yuncán \\
 \midrule
 NSE         & 0.64 & 0.69 & 0.64 & 0.67 & 0.61 & 0.74 & 0.57 & 0.60 \\
 RSR         & 0.60 & 0.56 & 0.60 & 0.57 & 0.64 & 0.51 & 0.66 & 0.63 \\
@@ -327,7 +328,7 @@ Copernicus Climate Data Store\footnote{\url{https://cds.climate.copernicus.eu}}.
 \begin{figure}[H]
     \centering
     \includegraphics[width=.8\textwidth]{Figures/map4.3.png}
-    \caption{Ubicación de estaciones virtuales para las zonas alta (EstAltaWS), media (EstMediaWS) y baja(EstBajaWS) de la cuenca (Fuente: Elaboracion Propia)}
+    \caption{Ubicación de estaciones virtuales para las zonas alta (EstAltaWS), media (EstMediaWS) y baja(EstBajaWS) de la cuenca (Fuente: Elaboración Propia)}
     \label{fig:4}
 \end{figure}
 
@@ -435,7 +436,7 @@ la Figura \ref{fig:4f}.
 \begin{figure}[H]
     \centering
     \includegraphics[width=.7\textwidth]{Figures/map4.4.png}
-    \caption{Hidrografía regional: ubicación del reservorio Yuncán (QN-906) y de las estaciones hidrológicas asociadas QN-908 (Uchuhuerta), QN-909 (Huallamayo). (Fuente: Elaboracion Propia)}
+    \caption{Hidrografía regional: ubicación del reservorio Yuncán (QN-906) y de las estaciones hidrológicas asociadas QN-908 (Uchuhuerta), QN-909 (Huallamayo). (Fuente: Elaboración Propia)}
     \captionsetup{labelfont=rm,skip=2pt,textfont=rm,font=small}
     \label{fig:4f}
 \end{figure}
@@ -546,11 +547,11 @@ parámetros morfológicos de la microcuenca de la quebrada Chonta.
 \begin{table}[ht]
 \centering
 \caption{Parámetros Morfológicos de las Cuencas}
-\label{tab:criterios_estadisticos_precipitacion}
+\label{tab05}
 \small
 \begin{tabular}{l c c c c}
 \toprule
-\textbf{Parámetro} & \textbf{Qn-905 (Yuncan)} & \textbf{QN-908 (Uchuhuerta)} &
+\textbf{Parámetro} & \textbf{Qn-905 (Yuncán)} & \textbf{QN-908 (Uchuhuerta)} &
 \textbf{QN-909 (Huallamayo)} & \textbf{Unidad} \\
 \midrule
 Área de la cuenca (A)                           & 1583   & 889    & 1583.0   &
@@ -567,7 +568,7 @@ Coeficiente de Compacidad (K\textsubscript{c})  & 1.4    & 1.5    & 1.5      &
 \\
 Factor de Forma (F\textsubscript{m})            & 0.3    & 0.2    & 0.3      &
 \\
-Razon de Circularidad (Rc)                      & 0.5    & 0.4    & 0.4      &
+Razón de Circularidad (Rc)                      & 0.5    & 0.4    & 0.4      &
 \\
 Altitud Media de la Cuenca (L)                  & 3902.9 & 4002.0 & 3742.6   &
 m.s.n.m. \\
@@ -575,12 +576,11 @@ Lado Mayor (L)                                  & 76.9   & 66.7   & 46.4     &
 Km \\
 Lado Menor (l)                                  & 20.6   & 13.3   & 9.6      &
 Km \\
-Pendiente Media del Rio (lc)                    & 1\%    & 5\%    & 6\%      &
+Pendiente Media del Río (lc)                    & 1\%    & 5\%    & 6\%      &
 m/m \\
 Coeficiente de Masividad (C\textsubscript{m})   & 2.5    & 4.5    & 2.4      &
 m/km\textsuperscript{2} \\
 \bottomrule
-\label{tab05}
 \end{tabular}
 \end{table}
 
@@ -626,46 +626,19 @@ revestir en T1; concreto en T2/T3/T4; acero soldado en conducto forzado.}
 \end{minipage}
 \end{table}
 
-\subsection{TIEMPO DE DESPLAZAMIENTO DESDE CADA CAPTACIÓN HASTA LA CENTRAL}
+\subsection{TIEMPO DE DESPLAZAMIENTO DESDE HUALLAMAYO HASTA LA CENTRAL}
 
 Los tiempos de desplazamiento fueron calculados para distintos caudales
-representativos de estiaje y avenida, aplicando la ecuación de Manning para el
-Túnel 1 (pelo libre) y la relación $v = Q/A$ para los túneles a presión y el
-conducto forzado.
+representativos de estiaje y avenida en el Embalse Huallamayo, aplicando la
+relación $v = Q/A$ para los túneles a presión y el conducto forzado.
 
-La Tabla~\ref{tab:tt_uchu} presenta los resultados para la \textbf{Ruta A}
-(Bocatoma Uchuhuerta~→ Casa de Máquinas, $\approx$20\,487~m).
-
-\begin{table}[H]
-\centering
-\caption{Ruta A: Tiempo de desplazamiento Bocatoma Uchuhuerta → Casa de Máquinas (T1+T2+T4+Conducto Forzado).}
-\label{tab:tt_uchu}
-% \small
-\begin{tabular}{c l S[table-format=1.2] S[table-format=1.2] S[table-format=1.2] S[table-format=1.2] S[table-format=1.2]}
-\toprule
-\textbf{Q} & \textbf{Época} & \textbf{T1 (h)} & \textbf{T2 (h)} & \textbf{T4
-(h)} & \textbf{CF (h)} & \textbf{Total (h)} \\
-\textbf{(m\textsuperscript{3}/s)} & & & & & & \\
-\midrule
- 5  & Estiaje            & 2.34 & 0.81 & 3.54 & 0.18 & 6.86 \\
-10  & Estiaje / Trans.\  & 1.98 & 0.41 & 1.77 & 0.09 & 4.24 \\
-15  & Transición         & 1.91 & 0.27 & 1.18 & 0.06 & 3.42 \\
-20  & Avenida máx.\      & 1.90 & 0.20 & 0.88 & 0.04 & 3.04 \\
-\bottomrule
-\end{tabular}
-\begin{minipage}{0.92\textwidth}
-\small\textit{T1: Túnel 1 (pelo libre); T2: Túnel 2; T4: Túnel 4; CF: Conducto
-Forzado.}
-\end{minipage}
-\end{table}
-
-La Tabla~\ref{tab:tt_hual} presenta los resultados para la \textbf{Ruta B}
+La Tabla~\ref{tab:tt_hual} presenta los resultados para la ruta de análisis
 (Embalse Huallamayo~→ Casa de Máquinas, $\approx$7\,966~m), íntegramente a
 presión.
 
 \begin{table}[H]
 \centering
-\caption{Ruta B: Tiempo de desplazamiento Embalse Huallamayo → Casa de Máquinas (T3+T4+Conducto Forzado).}
+\caption{Tiempo de desplazamiento Embalse Huallamayo → Casa de Máquinas (T3+T4+Conducto Forzado).}
 \label{tab:tt_hual}
 % \small
 \begin{tabular}{c l S[table-format=1.2] S[table-format=1.2] S[table-format=1.2] S[table-format=1.2]}
@@ -687,20 +660,19 @@ QN-909.}
 \end{minipage}
 \end{table}
 
-Los tiempos resultantes oscilan entre \textbf{3.0 y 6.9~h} para la Bocatoma
-Uchuhuerta ($Q = 5$--$20$~m\textsuperscript{3}/s, limitado por la capacidad del
-Túnel~1), y entre \textbf{0.64 y 6.4~h} para el Embalse Huallamayo ($Q =
-30$--$3$~m\textsuperscript{3}/s según la serie QN-909).
+Los tiempos resultantes para el Embalse Huallamayo oscilan entre \textbf{0.64 y
+6.4~h} para caudales de 30 a 3~m\textsuperscript{3}/s, respectivamente, según
+la serie QN-909.
 
 \section{SIMULACIÓN HIDROLÓGICA CON EL MODELO VIC}
 
-\subsection{DOMINIO DEL MODELO E INFORMACIÓN PLUVIOMÉTRICAS}
+\subsection{DOMINIO DEL MODELO E INFORMACIÓN PLUVIOMÉTRICA}
 
 \subsubsection{Descripción General}
 
 Para la estimación de los caudales naturales de la cuenca del río Paucartambo,
-se empleó el modelo hidrológico distribuido \textbf{VIC (Variable Infiltration
-Capacity)} \parencite{liang1994simple}, ampliamente utilizado en estudios
+se empleó el modelo hidrológico distribuido VIC (Variable Infiltration
+Capacity) \parencite{liang1994simple}, ampliamente utilizado en estudios
 hidrológicos a escala de cuenca y regional. El modelo VIC resuelve el balance
 hídrico en una malla regular de celdas geográficas, representando de manera
 explícita procesos de infiltración, evapotranspiración, escorrentía superficial
@@ -922,6 +894,26 @@ de control utilizados en la evaluación hidrológica.
     \caption{Mapa de pendientes derivado del DEM SRTM para la cuenca del río Paucartambo y ubicación de estaciones hidrométricas.}
     \label{fig:9a}
 \end{figure}
+
+\subsection{CORRECCIÓN POR SESGO}
+
+Como etapa complementaria a la simulación hidrológica, se aplicó una corrección
+post-procesamiento a las series de caudales generadas por el modelo VIC mediante
+un ajuste por desviación de sesgo (\textit{bias correction}). Este enfoque
+permite reducir sesgos sistemáticos e inconsistencias residuales entre los
+caudales simulados y los observados, sin modificar la estructura física del
+modelo.
+
+El ajuste fue realizado utilizando las series temporales de caudales simulados y
+observados en las estaciones con registro disponible. A partir de la comparación
+entre ambas series, se estimó la desviación de sesgo para cada punto de control
+y se aplicaron factores de corrección orientados a mejorar la representatividad
+de los caudales simulados frente a las observaciones.
+
+Los resultados presentados en las secciones siguientes corresponden a las series
+de caudales posteriores a la corrección por sesgo; por lo tanto, los valores
+expuestos ya consideran el ajuste por desviación de sesgo aplicado a las salidas
+del modelo VIC.
 
 \subsection{RESULTADOS DE LAS SIMULACIONES}
 
@@ -1194,87 +1186,46 @@ simulados presentan una dinámica coherente con el comportamiento multianual,
 alcanzando un máximo de 2.3~m\textsuperscript{3}/s en febrero y un mínimo
 cercano a 0.4~m\textsuperscript{3}/s en agosto.
 
-\subsection{CORRECCIÓN POR REDES NEURONALES}
-
-Como etapa complementaria a la simulación hidrológica, se aplicó una corrección
-post-procesamiento a las series de caudales generadas por el modelo VIC mediante
-una red neuronal artificial (RNA). Este enfoque permite reducir sesgos
-sistemáticos y inconsistencias residuales entre los caudales simulados y los
-observados, sin modificar la estructura física del modelo.
-
-La red neuronal fue entrenada utilizando las series temporales de caudales
-simulados y observados en las estaciones con registro disponible, para el
-período de calibración 2002–2020. La validación se realizó sobre el período
-2021–2025. Las variables de entrada a la red incluyeron los caudales diarios
-simulados por VIC junto con variables meteorológicas auxiliares (precipitación
-mensual acumulada y temperatura media). La arquitectura empleada corresponde a
-una red de múltiples capas densas (\textit{Multi-Layer Perceptron}, MLP),
-entrenada mediante retropropagación con regularización para prevenir el
-sobreajuste.
-
-Los resultados muestran que la corrección mediante redes neuronales mejoró de
-manera consistente los indicadores estadísticos en todos los puntos de control
-evaluados, especialmente el NSE y el KGE, confirmando la capacidad del esquema
-híbrido VIC + RNA para representar la dinámica hidrológica observada en la
-cuenca.
-
 \newpage
 \section{DISCUSIONES Y CONCLUSIONES}
 
-El presente estudio tiene como finalidad actualizar y presentar las series de
-caudales naturalizados del sistema hídrico de la cuenca del río Paucartambo,
-utilizadas por la Central Hidroeléctrica Yuncán de ENGIE Energía Perú S.A., en
-cumplimiento de la Resolución OSINERGMIN N° 196-2016-OS/CD y del Procedimiento
-Técnico N°41. El periodo de análisis comprende desde 1965 hasta el año 2025, con
-énfasis en la simulación hidrológica para el intervalo 1998–2025.
+El presente estudio actualiza las series de caudales naturalizados del sistema
+hídrico de la cuenca del río Paucartambo, utilizadas por la Central
+Hidroeléctrica Yuncán de ENGIE Energía Perú S.A.A., en el marco de la
+Resolución OSINERGMIN N° 196-2016-OS/CD y del Procedimiento Técnico N° 41. El
+periodo de análisis comprende de 1965 a 2025, con énfasis en la simulación
+hidrológica del intervalo 1998--2025.
 
-El cálculo de los caudales naturales se ha basado en una metodología de
-hidrología física distribuida, mediante el uso del modelo VIC (Variable
-Infiltration Capacity), alimentado con datos meteorológicos diarios y variables
-geofísicas de alta resolución. Para este estudio, se utilizó precipitación
-proveniente del producto satelital CHIRPS y variables meteorológicas del
-reanálisis ERA5-Land, corrigiendo la primera serie por técnicas de
-\textit{quantile mapping}. El área de estudio fue modelada hidrológicamente en
-una malla distribuida con resolución de ~5 km, y los caudales simulados fueron
-posteriormente corregidos mediante una red neuronal artificial para ajustar los
-resultados a los datos observados disponibles.
+La estimación de los caudales naturales se desarrolló mediante una metodología
+de hidrología física distribuida basada en el modelo VIC (Variable Infiltration
+Capacity). El modelo fue alimentado con precipitación CHIRPS, variables
+meteorológicas de ERA5-Land e información geofísica de la cuenca. Las series de
+precipitación fueron corregidas mediante \textit{quantile mapping}, y las
+salidas de caudal del modelo incorporan un ajuste por desviación de sesgo antes
+de su presentación.
 
-Los caudales promedio mensuales fueron simulados para el periodo 1998–2025,
-utilizando un periodo de estabilización (\textit{spin-up}) de cuatro años, lo
-que permitió obtener resultados robustos en los puntos de control hidrológico
-definidos: QN-908 (Uchuhuerta), QN-909 (Huallamayo), así
-como en puntos de control adicionales como QN-901 + QN-902 + QN-911 y QN-903 +
-QN-904 + QN-905.
+Los caudales promedio mensuales se obtuvieron para los puntos de control QN-908
+(Uchuhuerta), QN-909 (Huallamayo), QN-901 + QN-902 + QN-911 y QN-903 + QN-904 +
+QN-905. Para estabilizar las condiciones internas del modelo, se consideró un
+periodo de \textit{spin-up} de cuatro años antes del análisis de resultados.
 
-Los resultados obtenidos muestran un buen nivel de concordancia entre los
-caudales simulados y los observados, validado mediante indicadores estadísticos
-como el NSE (coeficiente de eficiencia de Nash-Sutcliffe), RSR, PBIAS, índice de
+El tiempo de desplazamiento estimado para el tramo Embalse Huallamayo--Casa de
+Máquinas varía entre 0.64 y 6.4~h para los caudales representativos evaluados,
+lo que permite caracterizar el retardo hidráulico asociado a la conducción desde
+este punto de regulación.
+
+La evaluación estadística indica una concordancia adecuada entre los caudales
+simulados y observados en los puntos evaluados. Los indicadores NSE, RSR, PBIAS,
 Willmott (d), coeficiente de correlación (r), coeficiente de determinación
-(R$^2$) y KGE, presentando valores calificados como ``Muy Buenos'' o ``Buenos''
-en todos los puntos evaluados (Tablas \ref{tab:swat_qn908} a
-\ref{tab:swat_qn903_qn905}).
+(R$^2$) y KGE se presentan en las Tablas \ref{tab:swat_qn908} a
+\ref{tab:swat_qn903_qn905}, y respaldan el uso de las series generadas para la
+caracterización hidrológica mensual de la cuenca.
 
-Se concluye que:
-
-\begin{enumerate}
-    \item El contenido y estructura del estudio cumplen con los lineamientos
-    establecidos en la Resolución OSINERGMIN N° 196-2016-OS/CD y el
-    Procedimiento Técnico N°41, considerando adecuadamente el periodo 1965–2025.
-    
-    \item Se ha actualizado la serie de caudales naturalizados y de
-    precipitaciones mensuales utilizando metodologías modernas basadas en
-    información satelital de alta resolución y reanálisis climático.
-    
-    \item El uso de datos satelitales CHIRPS y ERA5-Land ha permitido mejorar la
-    representación espacio-temporal de las condiciones climáticas de la cuenca.
-    La validación frente a estaciones meteorológicas locales demuestra su
-    confiabilidad.
-    
-    \item La implementación del modelo VIC, complementada con la corrección por
-    redes neuronales, permitió reproducir con buen desempeño la dinámica
-    hidrológica mensual de la cuenca, representando una base sólida para futuras
-    simulaciones y planificación energética. Se recomienda continuar con el
-    proceso de mejora de la red hidrometeorológica, refinamiento de parámetros
-    del modelo y actualización periódica de la base de datos.
-    
-\end{enumerate}
+En conclusión, el estudio cumple con la actualización de las series de caudales
+naturalizados para el periodo 1965--2025, incorporando información satelital,
+reanálisis climático, modelación hidrológica distribuida y corrección por sesgo.
+Los resultados constituyen una base técnica consistente para el análisis
+hidrológico del sistema Yuncán y para futuras actualizaciones de la información
+hidrometeorológica de la cuenca. Se recomienda mantener la actualización
+periódica de los registros, mejorar la disponibilidad de observaciones en campo
+y revisar los parámetros del modelo cuando se incorporen nuevas mediciones.
